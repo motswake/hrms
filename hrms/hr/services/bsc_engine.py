@@ -1,40 +1,42 @@
+"""Balanced Scorecard engine stubs
+
+Responsible for generating Employee Scorecards from templates and refreshing
+KPIs. These methods should call into the kpi_engine and data_fetchers.
 """
-Balanced Scorecard engine stubs for MVP.
-Handles creating a basic employee scorecard structure from a template.
-"""
+
 import frappe
-from hrms.hr.services.performance_settings import is_feature_enabled, is_performance_enabled
+from .performance_settings import is_feature_enabled
 
 
 def create_scorecard_from_appraisal(appraisal_doc):
-    if not is_performance_enabled() or not is_feature_enabled("enable_balanced_scorecard"):
-        frappe.throw("Balanced Scorecard is disabled")
-    # Minimal Scorecard creation: create a doc placeholder
+    if not is_feature_enabled("enable_balanced_scorecard"):
+        frappe.throw("Balanced Scorecard feature is disabled.")
+    # Placeholder: create a minimal Employee Scorecard doc
     scorecard = frappe.get_doc({
         "doctype": "Employee Scorecard",
-        "employee": appraisal_doc.get("employee"),
-        "appraisal": appraisal_doc.get("name"),
+        "employee": appraisal_doc.employee,
+        "appraisal": appraisal_doc.name,
         "status": "Generated",
-        "kpis": []
     })
-    # Do not insert into DB in MVP scaffolding — return the doc object
-    return scorecard
+    scorecard.insert(ignore_permissions=True)
+    return scorecard.name
 
 
 def refresh_scorecard(scorecard_doc, force=False):
-    # Refresh KPI actuals and recalculate perspective scores
-    if getattr(scorecard_doc, "locked", 0):
-        frappe.throw("Scorecard is locked and cannot be refreshed")
-    # No-op for MVP
-    return scorecard_doc
+    # Placeholder: iterate KPI rows and call KPI engine
+    return
 
 
 def calculate_perspective_scores(scorecard_doc):
-    # Simple aggregation stub
-    return {
-        "financial": 0,
-        "customer": 0,
-        "process": 0,
-        "learning": 0,
-        "overall": 0
-    }
+    # Placeholder
+    return
+
+
+def sync_scorecard_to_appraisal(scorecard_doc):
+    # Placeholder
+    return
+
+
+def lock_scorecard(scorecard_doc):
+    scorecard_doc.locked = 1
+    scorecard_doc.db_update()

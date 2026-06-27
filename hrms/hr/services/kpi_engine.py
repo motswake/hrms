@@ -1,36 +1,47 @@
+"""KPI engine stubs
+
+Responsible for calculating KPI actuals and KPI row scoring. Keep the
+implementation pure where possible (calculations) and isolate frappe/db calls in
+small well-tested methods.
 """
-KPI engine stubs for MVP.
-Responsible for calculating KPI actuals and KPI row scores.
-"""
+
 import frappe
-from hrms.hr.services.performance_settings import is_performance_enabled
+from .calculations import linear_score, reverse_score, capped_score, boolean_score
 
 
-def calculate_kpi(employee, kpi, start_date, end_date):
-    """Resolve KPI actual value for employee in date range. Stub returns None."""
-    if not is_performance_enabled():
-        return None
-    # In a full implementation this would query attendance/timesheets/sales etc.
-    return None
+def calculate_kpi(employee, kpi_doc, start_date, end_date):
+    """Resolve a numeric actual value for the kpi for the given employee and dates.
+
+    This is a facade that will delegate to data_fetchers or python methods
+    referenced on the KPI master record.
+    """
+    # Placeholder: return 0.0
+    return 0.0
 
 
 def calculate_kpi_score(actual, target, scoring_method, minimum_score=None, maximum_score=None):
-    """Return computed KPI score (0-100). Simple linear implementation for MVP."""
+    if scoring_method == "Linear":
+        return linear_score(actual, target)
+    if scoring_method == "Reverse":
+        return reverse_score(actual, target)
+    if scoring_method == "Capped":
+        return capped_score(actual, target, maximum_score or 100)
+    if scoring_method == "Boolean":
+        return boolean_score(actual)
+    # Manual Rating or unknown
     try:
-        actual = float(actual)
-        target = float(target)
+        return float(actual)
     except Exception:
         return 0.0
-    if target == 0:
-        return 0.0
-    score = (actual / target) * 100
-    if maximum_score is not None:
-        score = min(score, float(maximum_score))
-    if minimum_score is not None:
-        score = max(score, float(minimum_score))
-    return round(score, 2)
 
 
 def validate_kpi_weight_total(rows):
-    total = sum((r.get("weight") or 0) for r in rows)
-    return total == 100
+    total = sum((row.get("weight") or 0) for row in rows)
+    if round(total, 5) != 100.0:
+        frappe.throw(f"KPI weights must total 100%. Current total is {total}.")
+
+
+def apply_manual_override(row):
+    if row.get("manual_override") and not row.get("override_reason"):
+        frappe.throw("Manual KPI override requires an override reason.")
+    return row

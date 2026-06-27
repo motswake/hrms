@@ -1,73 +1,98 @@
+"""Score engine orchestration stubs
+
+Contains the high-level hooks called from Appraisal doc events. Implementations
+should keep controllers thin and delegate to the lower-level engines.
 """
-Score engine orchestrator for calculating final performance scores and integrating with Appraisal hooks.
-This file contains minimal stub implementations for MVP.
-"""
+
 import frappe
-from hrms.hr.services.performance_settings import is_performance_enabled, get_score_weights
+from .performance_settings import is_performance_enabled, get_score_weights
 
 
 def validate_appraisal_performance(doc, method=None):
-    """Validate appraisal before submit. Stub for MVP."""
     if not is_performance_enabled():
         return
-    # Minimal validation: ensure weights sum to 100
-    weights = get_score_weights(doc)
-    total = sum(weights.values())
-    if total != 100:
-        frappe.throw(f"Enabled component weights must total 100. Current total: {total}")
+    # Basic validations / placeholders
+    # TODO: validate enabled modules and required linked records
 
 
 def before_submit_appraisal(doc, method=None):
-    """Recalculate component scores and final score before appraisal submit."""
     if not is_performance_enabled():
         return
-    # Call individual engines — keep as no-ops for MVP
-    bsc = getattr(doc, "bsc_score", None) or 0
-    okr = getattr(doc, "okr_score", None) or 0
-    comp = getattr(doc, "competency_score", None) or 0
-    fb = getattr(doc, "feedback_360_score", None) or 0
-    manager = getattr(doc, "manager_score", None) or 0
-
-    weights = get_score_weights(doc)
-    final = (
-        bsc * weights.get("bsc", 0) / 100
-        + okr * weights.get("okr", 0) / 100
-        + comp * weights.get("competency", 0) / 100
-        + fb * weights.get("feedback_360", 0) / 100
-        + manager * weights.get("manager", 0) / 100
-    )
-    doc.final_performance_score = round(final, 2)
+    # Recalculate enabled scores and sync snapshot
+    try:
+        result = calculate_final_score(doc)
+        sync_score_snapshot(doc, result)
+    except Exception:
+        # bubble up sensible errors
+        raise
 
 
 def on_submit_appraisal(doc, method=None):
     if not is_performance_enabled():
         return
-    # Locking and auto-creation of PIP/IDP would go here in later iterations
-    frappe.log("EPM: Appraisal submitted: %s" % doc.name)
+    # Example: create PIP/IDP if required (not implemented)
 
 
 def on_cancel_appraisal(doc, method=None):
     if not is_performance_enabled():
         return
-    frappe.log("EPM: Appraisal cancelled: %s" % doc.name)
+    # Unlock or mark linked draft records as appropriate (not implemented)
 
 
-def calculate_final_score(appraisal_doc):
-    """Public API to calculate final score for an appraisal doc (or dict-like). Returns float."""
-    if not is_performance_enabled():
-        raise frappe.ValidationError("Performance management disabled")
-    # Expect appraisal_doc to be a dict-like object
-    bsc = appraisal_doc.get("bsc_score", 0) or 0
-    okr = appraisal_doc.get("okr_score", 0) or 0
-    comp = appraisal_doc.get("competency_score", 0) or 0
-    fb = appraisal_doc.get("feedback_360_score", 0) or 0
-    manager = appraisal_doc.get("manager_score", 0) or 0
+def calculate_final_score(appraisal_doc) -> dict:
+    """Aggregate component scores using configured weights.
+
+    Returns a dict with component scores and final_score, e.g.:
+    {
+        "bsc_score": 88.5,
+        "okr_score": 91.0,
+        "feedback_360_score": 84.0,
+        "competency_score": 79.0,
+        "manager_score": 86.0,
+        "final_score": 86.9
+    }
+    """
+    # Placeholder: in real implementation call services to compute each component
     weights = get_score_weights(appraisal_doc)
-    final = (
-        bsc * weights.get("bsc", 0) / 100
-        + okr * weights.get("okr", 0) / 100
-        + comp * weights.get("competency", 0) / 100
-        + fb * weights.get("feedback_360", 0) / 100
-        + manager * weights.get("manager", 0) / 100
-    )
-    return round(final, 2)
+    # For now, use zeros for components
+    comps = {k + "_score": 0.0 for k in ["bsc", "okr", "feedback_360", "competency", "manager"]}
+    final = 0.0
+    # compute weighted sum
+    component_map = {
+        "bsc": comps["bsc_score"],
+        "okr": comps["okr_score"],
+        "feedback_360": comps["feedback_360_score"],
+        "competency": comps["competency_score"],
+        "manager": comps["manager_score"],
+    }
+    for key, w in weights.items():
+        final += component_map.get(key, 0.0) * (w / 100.0)
+    comps["final_score"] = final
+    return comps
+
+
+def sync_score_snapshot(appraisal_doc, score_result: dict):
+    """Write snapshot fields to appraisal_doc. Do NOT recalc on submitted docs.
+
+    This function expects to be called inside a controlled lifecycle (before_submit).
+    """
+    if not score_result:
+        return
+    # Write values to fields if they exist on the doc
+    mapping = {
+        "bsc_score": "bsc_score",
+        "okr_score": "okr_score",
+        "feedback_360_score": "feedback_360_score",
+        "competency_score": "competency_score",
+        "manager_score": "manager_score",
+        "final_score": "final_performance_score",
+    }
+    for src, dest in mapping.items():
+        val = score_result.get(src)
+        if val is None:
+            continue
+        try:
+            setattr(appraisal_doc, dest, float(val))
+        except Exception:
+            # ignore missing fields silently for now
+            pass
