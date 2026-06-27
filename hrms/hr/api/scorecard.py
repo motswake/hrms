@@ -1,42 +1,25 @@
-"""Whitelisted API endpoints for Scorecard operations.
-
-These functions are intentionally thin wrappers that call service layer code.
-They require Frappe run-time.
 """
-from __future__ import annotations
-
+Scorecard APIs for generation and refresh actions (MVP stubs).
+"""
 import frappe
-from hrms.hr.services import bsc_engine, score_engine
-from hrms.hr.services.performance_settings import assert_feature_enabled, is_performance_enabled
-
-
-@frappe.whitelist()
-def generate_scorecard(appraisal: str):
-    if not is_performance_enabled():
-        frappe.throw("Performance Management Framework is disabled.")
-    # For MVP we route via bsc_engine.create_scorecard_from_appraisal if available
-    try:
-        return bsc_engine.create_scorecard_from_appraisal(frappe.get_doc("Appraisal", appraisal))
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "EPM.generate_scorecard_failed")
-        raise
-
+from hrms.hr.services.bsc_engine import create_scorecard_from_appraisal, refresh_scorecard
+from hrms.hr.services.performance_settings import is_performance_enabled, is_feature_enabled
 
 @frappe.whitelist()
-def refresh_scorecard(scorecard: str):
-    if not is_performance_enabled():
-        frappe.throw("Performance Management Framework is disabled.")
-    try:
-        doc = frappe.get_doc("Employee Scorecard", scorecard)
-        return bsc_engine.refresh_scorecard(doc)
-    except Exception as e:
-        frappe.log_error(frappe.get_traceback(), "EPM.refresh_scorecard_failed")
-        raise
-
+def generate_scorecard(appraisal):
+    if not is_performance_enabled() or not is_feature_enabled("enable_balanced_scorecard"):
+        return {"success": False, "message": "Balanced Scorecard disabled"}
+    appraisal_doc = frappe.get_doc("Appraisal", appraisal)
+    scorecard = create_scorecard_from_appraisal(appraisal_doc)
+    # Insert into DB as draft scorecard
+    scorecard.insert()
+    return {"success": True, "scorecard": scorecard.name}
 
 @frappe.whitelist()
-def calculate_final_score(appraisal: str):
-    if not is_performance_enabled():
-        frappe.throw("Performance Management Framework is disabled.")
-    doc = frappe.get_doc("Appraisal", appraisal)
-    return score_engine.calculate_final_score(doc)
+def refresh_scorecard_api(scorecard):
+    if not is_performance_enabled() or not is_feature_enabled("enable_balanced_scorecard"):
+        return {"success": False, "message": "Balanced Scorecard disabled"}
+    sc = frappe.get_doc("Employee Scorecard", scorecard)
+    refresh_scorecard(sc)
+    sc.save()
+    return {"success": True}

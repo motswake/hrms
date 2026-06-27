@@ -1,108 +1,73 @@
-"""Score engine - orchestration for appraisal integration and final score aggregation.
-
-This module is intentionally lightweight and delegates heavy lifting to specialized engines (kpi, bsc, okr, etc.).
 """
-from __future__ import annotations
-
+Score engine orchestrator for calculating final performance scores and integrating with Appraisal hooks.
+This file contains minimal stub implementations for MVP.
+"""
 import frappe
-from hrms.hr.services import performance_settings
-from hrms.hr.services.calculations import clamp
+from hrms.hr.services.performance_settings import is_performance_enabled, get_score_weights
 
 
 def validate_appraisal_performance(doc, method=None):
-    # Guard
-    if not performance_settings.is_performance_enabled():
+    """Validate appraisal before submit. Stub for MVP."""
+    if not is_performance_enabled():
         return
-
-    # Basic validation example: ensure weights sum to 100 when hybrid/custom selected
-    weights = performance_settings.get_score_weights(doc)
-    # Do not validate strict unless EPM explicitly requires it here
-    try:
-        performance_settings.validate_score_weights(weights)
-    except Exception as e:
-        frappe.throw(str(e))
+    # Minimal validation: ensure weights sum to 100
+    weights = get_score_weights(doc)
+    total = sum(weights.values())
+    if total != 100:
+        frappe.throw(f"Enabled component weights must total 100. Current total: {total}")
 
 
 def before_submit_appraisal(doc, method=None):
-    if not performance_settings.is_performance_enabled():
+    """Recalculate component scores and final score before appraisal submit."""
+    if not is_performance_enabled():
         return
+    # Call individual engines — keep as no-ops for MVP
+    bsc = getattr(doc, "bsc_score", None) or 0
+    okr = getattr(doc, "okr_score", None) or 0
+    comp = getattr(doc, "competency_score", None) or 0
+    fb = getattr(doc, "feedback_360_score", None) or 0
+    manager = getattr(doc, "manager_score", None) or 0
 
-    # Recalculate final score and snapshot to appraisal doc
-    result = calculate_final_score(doc)
-    # Sync minimal snapshot fields
-    doc.bsc_score = result.get("bsc_score")
-    doc.okr_score = result.get("okr_score")
-    doc.feedback_360_score = result.get("feedback_360_score")
-    doc.competency_score = result.get("competency_score")
-    doc.manager_score = result.get("manager_score")
-    doc.final_performance_score = result.get("final_score")
-    doc.final_performance_rating = result.get("rating")
+    weights = get_score_weights(doc)
+    final = (
+        bsc * weights.get("bsc", 0) / 100
+        + okr * weights.get("okr", 0) / 100
+        + comp * weights.get("competency", 0) / 100
+        + fb * weights.get("feedback_360", 0) / 100
+        + manager * weights.get("manager", 0) / 100
+    )
+    doc.final_performance_score = round(final, 2)
 
 
 def on_submit_appraisal(doc, method=None):
-    if not performance_settings.is_performance_enabled():
+    if not is_performance_enabled():
         return
-
-    # Post-submit actions (locking scorecards, creating PIP/IDP) are out of scope for MVP
-    frappe.log_error(message=f"Appraisal {doc.name} submitted; final score: {getattr(doc, 'final_performance_score', None)}", title="EPM:on_submit_appraisal")
+    # Locking and auto-creation of PIP/IDP would go here in later iterations
+    frappe.log("EPM: Appraisal submitted: %s" % doc.name)
 
 
 def on_cancel_appraisal(doc, method=None):
-    if not performance_settings.is_performance_enabled():
+    if not is_performance_enabled():
         return
-    # No destructive cleanup for now
-    frappe.log_error(message=f"Appraisal {doc.name} cancelled while EPM enabled.", title="EPM:on_cancel_appraisal")
+    frappe.log("EPM: Appraisal cancelled: %s" % doc.name)
 
 
-def calculate_final_score(appraisal_doc) -> dict:
-    """Calculate the final performance score using enabled components and configured weights.
-
-    Returns a dict containing component scores and final_score.
-    """
-    # For MVP we attempt to retrieve linked scorecard/okr/competency records if present; otherwise 0
-    bsc_score = getattr(appraisal_doc, "bsc_score", None) or 0.0
-    okr_score = getattr(appraisal_doc, "okr_score", None) or 0.0
-    feedback_360_score = getattr(appraisal_doc, "feedback_360_score", None) or 0.0
-    competency_score = getattr(appraisal_doc, "competency_score", None) or 0.0
-    manager_score = getattr(appraisal_doc, "manager_score", None) or 0.0
-
-    weights = performance_settings.get_score_weights(appraisal_doc)
-
+def calculate_final_score(appraisal_doc):
+    """Public API to calculate final score for an appraisal doc (or dict-like). Returns float."""
+    if not is_performance_enabled():
+        raise frappe.ValidationError("Performance management disabled")
+    # Expect appraisal_doc to be a dict-like object
+    bsc = appraisal_doc.get("bsc_score", 0) or 0
+    okr = appraisal_doc.get("okr_score", 0) or 0
+    comp = appraisal_doc.get("competency_score", 0) or 0
+    fb = appraisal_doc.get("feedback_360_score", 0) or 0
+    manager = appraisal_doc.get("manager_score", 0) or 0
+    weights = get_score_weights(appraisal_doc)
     final = (
-        bsc_score * weights.get("bsc_weight", 0) / 100.0
-        + okr_score * weights.get("okr_weight", 0) / 100.0
-        + feedback_360_score * weights.get("feedback_360_weight", 0) / 100.0
-        + competency_score * weights.get("competency_weight", 0) / 100.0
-        + manager_score * weights.get("manager_weight", 0) / 100.0
+        bsc * weights.get("bsc", 0) / 100
+        + okr * weights.get("okr", 0) / 100
+        + comp * weights.get("competency", 0) / 100
+        + fb * weights.get("feedback_360", 0) / 100
+        + manager * weights.get("manager", 0) / 100
     )
-
-    final = clamp(final, 0.0, 100.0)
-
-    # Rating determination will use Performance Rating Matrix in follow-up iterations; for MVP use simple bands
-    rating = _simple_rating_label(final)
-
-    return {
-        "bsc_score": float(bsc_score),
-        "okr_score": float(okr_score),
-        "feedback_360_score": float(feedback_360_score),
-        "competency_score": float(competency_score),
-        "manager_score": float(manager_score),
-        "final_score": float(final),
-        "rating": rating,
-    }
-
-
-def _simple_rating_label(score: float) -> str:
-    if score >= 95:
-        return "Outstanding"
-    if score >= 90:
-        return "Excellent"
-    if score >= 80:
-        return "Very Good"
-    if score >= 70:
-        return "Good"
-    if score >= 60:
-        return "Satisfactory"
-    if score >= 50:
-        return "Needs Improvement"
-    return "Unsatisfactory"
+    return round(final, 2)

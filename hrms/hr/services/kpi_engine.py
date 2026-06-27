@@ -1,53 +1,36 @@
-"""KPI engine - calculate KPI actuals and KPI scores.
-
-This is a minimal implementation for the MVP to allow scorecard generation and KPI scoring.
 """
-from __future__ import annotations
-
-from typing import Optional
-
-from hrms.hr.services.calculations import linear_score, reverse_score, capped_score, boolean_score, clamp
-
-
-def calculate_kpi(employee: str, kpi_doc: dict, start_date: str, end_date: str) -> dict:
-    """Calculate the actual value and score for a KPI for an employee over a date range.
-
-    kpi_doc is expected to be a lightweight mapping with keys like 'calculation_method', 'target', 'minimum_score', 'maximum_score', 'scoring_method'.
-    Returns: {'actual': float, 'achievement_percent': float, 'score': float}
-    """
-    # MVP: resolve actual using data_fetchers placeholder; default to 0
-    actual = kpi_doc.get("actual", 0.0) or 0.0
-    target = kpi_doc.get("target", 0.0) or 0.0
-    scoring_method = kpi_doc.get("scoring_method", "Linear")
-
-    if scoring_method == "Linear":
-        achievement = linear_score(actual, target)
-    elif scoring_method == "Reverse":
-        achievement = reverse_score(actual, target)
-    elif scoring_method == "Capped":
-        achievement = capped_score(actual, target, kpi_doc.get("maximum_score", 100.0))
-    elif scoring_method == "Boolean":
-        achievement = boolean_score(actual)
-    else:
-        # Manual Rating or unknown
-        try:
-            achievement = float(actual)
-        except Exception:
-            achievement = 0.0
-
-    achievement = clamp(achievement, 0.0, 100.0)
-    # Weighted score will be computed by scorecard consumer; here we return raw achievement
-    return {"actual": actual, "achievement_percent": achievement}
+KPI engine stubs for MVP.
+Responsible for calculating KPI actuals and KPI row scores.
+"""
+import frappe
+from hrms.hr.services.performance_settings import is_performance_enabled
 
 
-def calculate_kpi_score(actual: float, target: float, scoring_method: str, minimum_score: Optional[float] = None, maximum_score: Optional[float] = None) -> float:
-    if scoring_method == "Linear":
-        return linear_score(actual, target)
-    if scoring_method == "Reverse":
-        return reverse_score(actual, target)
-    if scoring_method == "Capped":
-        return capped_score(actual, target, maximum_score or 100.0)
-    if scoring_method == "Boolean":
-        return boolean_score(actual)
-    # Manual rating - actual is the score
-    return float(actual or 0.0)
+def calculate_kpi(employee, kpi, start_date, end_date):
+    """Resolve KPI actual value for employee in date range. Stub returns None."""
+    if not is_performance_enabled():
+        return None
+    # In a full implementation this would query attendance/timesheets/sales etc.
+    return None
+
+
+def calculate_kpi_score(actual, target, scoring_method, minimum_score=None, maximum_score=None):
+    """Return computed KPI score (0-100). Simple linear implementation for MVP."""
+    try:
+        actual = float(actual)
+        target = float(target)
+    except Exception:
+        return 0.0
+    if target == 0:
+        return 0.0
+    score = (actual / target) * 100
+    if maximum_score is not None:
+        score = min(score, float(maximum_score))
+    if minimum_score is not None:
+        score = max(score, float(minimum_score))
+    return round(score, 2)
+
+
+def validate_kpi_weight_total(rows):
+    total = sum((r.get("weight") or 0) for r in rows)
+    return total == 100
