@@ -1,22 +1,21 @@
-"""Scorecard API stubs (BSC)
-
-Whitelisted methods for generating and refreshing scorecards.
-"""
-
 import frappe
-from hrms.hr.services.performance_settings import assert_feature_enabled
-from hrms.hr.services.bsc_engine import create_scorecard_from_appraisal, refresh_scorecard
 
 @frappe.whitelist()
 def generate_scorecard(appraisal):
-    assert_feature_enabled("enable_balanced_scorecard")
-    appraisal_doc = frappe.get_doc("Appraisal", appraisal)
-    esc = create_scorecard_from_appraisal(appraisal_doc)
-    return {"scorecard": esc}
+    """Generate an Employee Scorecard from appraisal via bsc_engine.
+    """
+    from hrms.hr.services.bsc_engine import create_scorecard_from_appraisal
+    try:
+        scorecard_name = create_scorecard_from_appraisal(frappe.get_doc("Appraisal", appraisal))
+        return {"success": True, "message": "Scorecard generated", "data": {"scorecard": scorecard_name}}
+    except Exception as e:
+        return {"success": False, "message": str(e), "errors": []}
 
 @frappe.whitelist()
-def refresh_scorecard_api(scorecard):
-    # note: API name different to avoid collision with service function
-    sc = frappe.get_doc("Employee Scorecard", scorecard)
-    refresh_scorecard(sc)
-    return {"success": True}
+def refresh_scorecard(scorecard):
+    from hrms.hr.services.bsc_engine import refresh_scorecard
+    try:
+        refresh_scorecard(frappe.get_doc("Employee Scorecard", scorecard))
+        return {"success": True, "message": "Scorecard refresh queued/complete", "data": {}}
+    except Exception as e:
+        return {"success": False, "message": str(e), "errors": []}
