@@ -1,0 +1,28 @@
+{
+  "doctype": "DocType",
+  "name": "KPI Master",
+  "module": "HR",
+  "custom": 0,
+  "fields": [
+    {"fieldname": "kpi_name", "label": "KPI Name", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "kpi_code", "label": "KPI Code", "fieldtype": "Data", "reqd": 1},
+    {"fieldname": "description", "label": "Description", "fieldtype": "Small Text"},
+    {"fieldname": "perspective", "label": "Perspective", "fieldtype": "Select", "options": "\nFinancial\nCustomer\nInternal Process\nLearning and Growth\nCompliance\nQuality\nSafety\nProductivity", "reqd": 1},
+    {"fieldname": "default_weight", "label": "Default Weight", "fieldtype": "Percent"},
+    {"fieldname": "automatic_calculation", "label": "Automatic Calculation", "fieldtype": "Check"},
+    {"fieldname": "calculation_method", "label": "Calculation Method", "fieldtype": "Select", "options": "\nManual\nPython Method\nReport Source"},
+    {"fieldname": "python_method", "label": "Python Method", "fieldtype": "Data"},
+    {"fieldname": "report_source", "label": "Report Source", "fieldtype": "Link", "options": "Report"},
+    {"fieldname": "company", "label": "Company", "fieldtype": "Link", "options": "Company"},
+    {"fieldname": "department", "label": "Department", "fieldtype": "Link", "options": "Department"},
+    {"fieldname": "designation", "label": "Designation", "fieldtype": "Link", "options": "Designation"}
+  ],
+  "permissions": [
+    {"role": "HR Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "HR User", "read": 1, "write": 1},
+    {"role": "Manager", "read": 1},
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+  ],
+  "autoname": "field:kpi_code",
+  "track_changes": 1
+}

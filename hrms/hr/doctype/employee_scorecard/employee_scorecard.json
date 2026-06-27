@@ -1,0 +1,27 @@
+{
+  "doctype": "DocType",
+  "name": "Employee Scorecard",
+  "module": "HR",
+  "custom": 0,
+  "istable": 0,
+  "fields": [
+    {"fieldname": "employee", "label": "Employee", "fieldtype": "Link", "options": "Employee", "reqd": 1},
+    {"fieldname": "company", "label": "Company", "fieldtype": "Link", "options": "Company", "reqd": 1},
+    {"fieldname": "appraisal", "label": "Appraisal", "fieldtype": "Link", "options": "Appraisal"},
+    {"fieldname": "review_period_start", "label": "Review Period Start", "fieldtype": "Date"},
+    {"fieldname": "review_period_end", "label": "Review Period End", "fieldtype": "Date"},
+    {"fieldname": "overall_score", "label": "Overall Score", "fieldtype": "Percent", "read_only": 1},
+    {"fieldname": "overall_rating", "label": "Overall Rating", "fieldtype": "Data", "read_only": 1},
+    {"fieldname": "locked", "label": "Locked", "fieldtype": "Check", "read_only": 1},
+    {"fieldname": "kpis", "label": "KPIs", "fieldtype": "Table", "options": "Employee Scorecard KPI"}
+  ],
+  "permissions": [
+    {"role": "Employee", "read": 1},
+    {"role": "Manager", "read": 1, "write": 1},
+    {"role": "HR User", "read": 1, "write": 1},
+    {"role": "HR Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+  ],
+  "autoname": "field:employee",
+  "track_changes": 1
+}

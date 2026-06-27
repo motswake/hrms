@@ -1,0 +1,20 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "HR Settings",
+    "fieldname": "enable_performance_management",
+    "label": "Enable Performance Management Framework",
+    "fieldtype": "Check",
+    "insert_after": "some_field",
+    "section": "Performance Management"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "HR Settings",
+    "fieldname": "enable_balanced_scorecard",
+    "label": "Enable Balanced Scorecard",
+    "fieldtype": "Check",
+    "insert_after": "enable_performance_management",
+    "section": "Performance Management"
+  }
+]
